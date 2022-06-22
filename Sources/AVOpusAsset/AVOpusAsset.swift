@@ -22,6 +22,8 @@ public class AVOpusAsset: AVAsset
     public init(url: URL) throws
     {
         let data = try Data(contentsOf: url)
+        var channelCount: Int = 1
+        var frameCount: Int = 0
         
         // read opus file contents into AVAudioPCMBuffer
         
@@ -33,8 +35,9 @@ public class AVOpusAsset: AVAsset
             guard let file = op_open_memory(bytes, data.count, &err) else { throw Error.opusError(err) }
             defer { op_free(file) }
             
-            let channelCount = Int(op_channel_count(file, -1))
-            let total = Int(op_pcm_total(file, -1))
+            channelCount = Int(op_channel_count(file, -1))
+            frameCount = Int(op_pcm_total(file, -1))
+            let sampleCount = frameCount * channelCount
             
             guard
                 let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -42,14 +45,14 @@ public class AVOpusAsset: AVAsset
                                            channels: UInt32(channelCount),
                                            interleaved: channelCount > 1),
                 let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format,
-                                                 frameCapacity: AVAudioFrameCount(total))
+                                                 frameCapacity: AVAudioFrameCount(frameCount))
             else { throw Error.formatError }
             
             let framesToRead = Int32(960 * channelCount)
             var writeCursor: Int = 0
 
             while
-                writeCursor < total,
+                writeCursor < sampleCount,
                 case let readFrames = Int(op_read_float(file,
                                                         pcmBuffer.floatChannelData![0].advanced(by: writeCursor),
                                                         framesToRead,
@@ -58,6 +61,8 @@ public class AVOpusAsset: AVAsset
             {
                 writeCursor += readFrames * channelCount
             }
+            
+            pcmBuffer.frameLength = AVAudioFrameCount(frameCount)
             
             return pcmBuffer
         }
@@ -73,12 +78,12 @@ public class AVOpusAsset: AVAsset
         [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 48000,
-            AVNumberOfChannelsKey: 1,
+            AVNumberOfChannelsKey: channelCount,
             AVLinearPCMBitDepthKey: 16
         ])
 
         try outputFile.write(from: audioBuffer)
-        
+                
         // init asset with temp URL
         
         super.init(url: tempFileURL)
