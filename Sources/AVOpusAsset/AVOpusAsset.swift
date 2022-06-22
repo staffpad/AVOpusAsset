@@ -23,7 +23,7 @@ public class AVOpusAsset: AVAsset
     {
         let data = try Data(contentsOf: url)
         var channelCount: Int = 1
-        var frameCount: Int = 0
+        var sampleCount: Int = 0
         
         // read opus file contents into AVAudioPCMBuffer
         
@@ -36,8 +36,8 @@ public class AVOpusAsset: AVAsset
             defer { op_free(file) }
             
             channelCount = Int(op_channel_count(file, -1))
-            frameCount = Int(op_pcm_total(file, -1))
-            let sampleCount = frameCount * channelCount
+            sampleCount = Int(op_pcm_total(file, -1))
+            let frameCount = sampleCount / channelCount
             
             guard
                 let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -52,7 +52,7 @@ public class AVOpusAsset: AVAsset
             var writeCursor: Int = 0
 
             while
-                writeCursor < sampleCount,
+                writeCursor < frameCount,
                 case let readFrames = Int(op_read_float(file,
                                                         pcmBuffer.floatChannelData![0].advanced(by: writeCursor),
                                                         framesToRead,
