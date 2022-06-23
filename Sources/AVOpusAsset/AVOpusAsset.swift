@@ -74,7 +74,7 @@ public class AVOpusAsset
         }
         
         self.tempFileURL = outputURL
-        avAsset = AVAsset(url: url)
+        avAsset = AVAsset(url: outputURL)
     }
     
     deinit
