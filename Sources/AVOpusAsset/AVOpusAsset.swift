@@ -49,7 +49,7 @@ public class AVOpusAsset: AVAsset
                 let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                            sampleRate: 48000,
                                            channels: UInt32(channelCount),
-                                           interleaved: channelCount > 1),
+                                           interleaved: true),
                 let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format,
                                                  frameCapacity: AVAudioFrameCount(5760 * channelCount))
             else { throw Error.formatError }
