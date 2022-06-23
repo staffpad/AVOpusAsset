@@ -19,15 +19,15 @@ public class AVOpusAsset: AVAsset
     
     private let tempFileURL: URL
     
-    public init(url: URL) throws
+    public init(opusFileURL: URL) throws
     {
-        let data = try Data(contentsOf: url)
-        var channelCount: Int = 1
-        var sampleCount: Int = 0
+        let data = try Data(contentsOf: opusFileURL)
+                
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("wav")
         
-        // read opus file contents into AVAudioPCMBuffer
-        
-        let audioBuffer: AVAudioPCMBuffer = try data.withUnsafeBytes
+        try data.withUnsafeBytes
         {
             var err: Int32 = 0
             let bytes = $0.baseAddress!.assumingMemoryBound(to: UInt8.self)
@@ -35,62 +35,43 @@ public class AVOpusAsset: AVAsset
             guard let file = op_open_memory(bytes, data.count, &err) else { throw Error.opusError(err) }
             defer { op_free(file) }
             
-            channelCount = Int(op_channel_count(file, -1))
-            sampleCount = Int(op_pcm_total(file, -1))
-            let frameCount = sampleCount / channelCount
-            
+            let channelCount = Int(op_channel_count(file, -1))
+            let outputFile = try AVAudioFile(forWriting: outputURL,
+                                         settings:
+            [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: 48000,
+                AVNumberOfChannelsKey: channelCount,
+                AVLinearPCMBitDepthKey: 16
+            ])
+
             guard
                 let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                            sampleRate: 48000,
                                            channels: UInt32(channelCount),
                                            interleaved: channelCount > 1),
                 let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format,
-                                                 frameCapacity: AVAudioFrameCount(frameCount))
+                                                 frameCapacity: AVAudioFrameCount(5760 * channelCount))
             else { throw Error.formatError }
             
-            let framesToRead = Int32(960 * channelCount)
-            var writeCursor: Int = 0
-
             while
-                writeCursor < frameCount,
                 case let readFrames = Int(op_read_float(file,
-                                                        pcmBuffer.floatChannelData![0].advanced(by: writeCursor),
-                                                        framesToRead,
+                                                        pcmBuffer.floatChannelData![0],
+                                                        Int32(pcmBuffer.frameCapacity),
                                                         nil)),
                 readFrames > 0
             {
-                writeCursor += readFrames * channelCount
+                pcmBuffer.frameLength = AVAudioFrameCount(readFrames)
+                try outputFile.write(from: pcmBuffer)
             }
-            
-            pcmBuffer.frameLength = AVAudioFrameCount(frameCount)
-            
-            return pcmBuffer
         }
         
-        // write AVAudioPCMBuffer to WAVE file in temp directory
-        
-        tempFileURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension("wav")
-        
-        let outputFile = try AVAudioFile(forWriting: tempFileURL,
-                                     settings:
-        [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: 48000,
-            AVNumberOfChannelsKey: channelCount,
-            AVLinearPCMBitDepthKey: 16
-        ])
-
-        try outputFile.write(from: audioBuffer)
-                
-        // init asset with temp URL
-        
-        super.init(url: tempFileURL)
+        self.tempFileURL = outputURL
+        super.init(url: outputURL)
     }
     
     deinit
     {
-        try? FileManager.default.removeItem(at: tempFileURL)
+        try? FileManager.default.removeItem(at: self.tempFileURL)
     }
 }
