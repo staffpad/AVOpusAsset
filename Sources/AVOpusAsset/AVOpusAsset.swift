@@ -9,8 +9,10 @@ import AVFoundation
 import Foundation
 import Opus
 
-public class AVOpusAsset: AVAsset
+public class AVOpusAsset
 {
+    public let avAsset: AVAsset
+    
     public enum Error: Swift.Error
     {
         case opusError(Int32)
@@ -18,10 +20,10 @@ public class AVOpusAsset: AVAsset
     }
     
     private let tempFileURL: URL
-    
-    public init(opusFileURL: URL) throws
+            
+    public init(url: URL) throws
     {
-        let data = try Data(contentsOf: opusFileURL)
+        let data = try Data(contentsOf: url)
                 
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -36,22 +38,27 @@ public class AVOpusAsset: AVAsset
             defer { op_free(file) }
             
             let channelCount = Int(op_channel_count(file, -1))
-            let outputFile = try AVAudioFile(forWriting: outputURL,
-                                         settings:
-            [
+            let outputFileSettings: [String: Any] = [
                 AVFormatIDKey: kAudioFormatLinearPCM,
+                AVAudioFileTypeKey: kAudioFileWAVEType,
                 AVSampleRateKey: 48000,
                 AVNumberOfChannelsKey: channelCount,
-                AVLinearPCMBitDepthKey: 16
-            ])
+                AVLinearPCMBitDepthKey: 32,
+                AVLinearPCMIsFloatKey: true
+            ]
+
+            let outputFile = try AVAudioFile(forWriting: outputURL,
+                                             settings: outputFileSettings,
+                                             commonFormat: .pcmFormatFloat32,
+                                             interleaved: true)
 
             guard
                 let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                            sampleRate: 48000,
                                            channels: UInt32(channelCount),
-                                           interleaved: true),
+                                           interleaved: channelCount > 1),
                 let pcmBuffer = AVAudioPCMBuffer(pcmFormat: format,
-                                                 frameCapacity: AVAudioFrameCount(5760 * channelCount))
+                                                 frameCapacity: AVAudioFrameCount(5760))
             else { throw Error.formatError }
             
             while
@@ -67,7 +74,7 @@ public class AVOpusAsset: AVAsset
         }
         
         self.tempFileURL = outputURL
-        super.init(url: outputURL)
+        avAsset = AVAsset(url: url)
     }
     
     deinit

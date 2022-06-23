@@ -6,7 +6,7 @@ import PackageDescription
 let package = Package(
     name: "AVOpusAsset",
     platforms: [
-        .macOS(.v10_12),
+        .macOS(.v10_13),
         .iOS(.v10)
     ],
     products: [
