@@ -7,7 +7,7 @@ let package = Package(
     name: "AVOpusAsset",
     platforms: [
         .macOS(.v10_13),
-        .iOS(.v10)
+        .iOS(.v11)
     ],
     products: [
         .library(
