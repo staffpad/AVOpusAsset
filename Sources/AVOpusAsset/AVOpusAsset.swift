@@ -19,7 +19,7 @@ public class AVOpusAsset
         case formatError
     }
     
-    private let tempFileURL: URL
+    public let tempFileURL: URL
             
     public init(url: URL) throws
     {
