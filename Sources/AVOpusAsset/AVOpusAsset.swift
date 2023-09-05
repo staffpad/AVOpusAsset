@@ -21,10 +21,14 @@ public class AVOpusAsset
     
     public let tempFileURL: URL
             
-    public init(url: URL) throws
+    public convenience init(url: URL) throws
     {
         let data = try Data(contentsOf: url)
-                
+        try self.init(data: data)
+    }
+    
+    public init(data: Data) throws
+    {
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("wav")
